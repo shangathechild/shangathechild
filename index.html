@@ -224,17 +224,35 @@ function addMsg(txt,type){
     const b=document.createElement('div'); b.className='bubble'; b.textContent=txt;
     d.appendChild(b); m.appendChild(d); m.scrollTop=m.scrollHeight;
 }
-
 async function go(){
-    try{
+    try {
+        // 1. Check if the key was actually pasted
+        if (GEMINI_API_KEY === "PASTE_YOUR_KEY_HERE" || !GEMINI_API_KEY) {
+            addMsg("setup error: api key missing in code.", "bot");
+            return;
+        }
+
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ system_instruction: { parts: [{ text: SYS }] }, contents: hist })
+            body: JSON.stringify({ 
+                system_instruction: { parts: [{ text: SYS }] }, 
+                contents: hist 
+            })
         });
+
         const data = await res.json();
+
+        // 2. Check if the API returned an error (like an invalid key)
+        if (data.error) {
+            addMsg("api error: " + data.error.message, "bot");
+            return;
+        }
+
         const rep = data.candidates?.[0]?.content?.parts?.[0]?.text || "error.";
+
         if(rep.includes('[BANNED]')){
             localStorage.setItem('shanga_ban', 'true');
             setTimeout(()=>document.getElementById('ban-overlay').classList.add('show'), 500);
@@ -242,9 +260,13 @@ async function go(){
             hist.push({role:'model',parts:[{text:rep}]});
             addMsg(rep,'bot');
         }
-    } catch(e){ addMsg('api issue.','bot'); } finally { loading=false; }
+    } catch(e) { 
+        addMsg('connection error. check your internet or api key.', 'bot');
+        console.error(e);
+    } finally { 
+        loading=false; 
+    }
 }
-
 const obs=new IntersectionObserver(en=>{en.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});},{threshold:.1});
 document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
 </script>
